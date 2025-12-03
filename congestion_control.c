@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
-#include <bpf/libbpf.h>
+#include "libbpf.h"
 #include "congestion_control.skel.h"
 
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)

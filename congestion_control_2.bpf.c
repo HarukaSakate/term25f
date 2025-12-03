@@ -1,6 +1,6 @@
 #include "vmlinux.h"
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_endian.h>
+#include <bpf_helpers.h>
+#include <bpf_endian.h>
 
 // 独自CCの名前 (カーネル側でtcp_congestion_opsとして登録済み想定)
 #define MY_RTMP_CC "my_rtmp_cc"

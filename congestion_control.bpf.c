@@ -1,7 +1,7 @@
 // vmlinux.hをインクルード
 #include "vmlinux.h"
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_endian.h>
+#include <bpf_helpers.h>
+#include <bpf_endian.h>
 
 #define TC_ACT_OK 0
 #define TC_ACT_SHOT 2
