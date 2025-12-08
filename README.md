@@ -76,7 +76,7 @@ VM間で相互に通信できるようにするため、VirtualBoxの「内部�
 3.  **配信開始:**
     OBSメイン画面の\*\*「配信開始」\*\*ボタンを押すと、RTMPサーバーへ動画ストリームが送信されます。
 
-「サーバーへの接続に失敗しました」などと表示されるときはOBSを再起動すると配信できるようになる。
+「サーバーへの接続に失敗しました」などと表示されるときはOSやOBSを再起動すると配信できるようになる。
 
 -----
 
@@ -108,4 +108,5 @@ RTMPサーバーと同じVM内で、ストリームを受信・再生します�
     ```
     sudo tc qdisc add dev enp0s3 root handle 1:0 tbf rate 50mbit burst 25kb limit 250kb
     sudo tc qdisc add dev enp0s3 parent 1:1 handle 10:1 netem delay 50ms 10ms distribution normal
+    sudo tc qdisc show dev enp0s3
     ```
