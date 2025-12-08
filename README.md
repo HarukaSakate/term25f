@@ -112,3 +112,6 @@ RTMPサーバーと同じVM内で、ストリームを受信・再生します�
      sudo tc qdisc add dev enp0s3 parent 1:1 handle 10:1 netem delay 50ms 10ms distribution normal
      sudo tc qdisc show dev enp0s3
      ```
+
+     TC設定の削除
+     sudo tc qdisc del dev enp0s3 root
