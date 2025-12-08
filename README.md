@@ -100,3 +100,10 @@ RTMPサーバーと同じVM内で、ストリームを受信・再生します�
 ## ipアドレスの設定
  https://qiita.com/mtn_kt/items/633bd5e3e00732af564e　を参考に設定する
  手動→IPアドレス
+
+## TCコマンドの設定
+    enp0s3の出力帯域を50Mbpsに制限、50msの遅延と10msのジッタを発生
+    ```
+    sudo tc qdisc add dev enp0s3 root handle 1:0 tbf rate 50mbit burst 25kb limit 250kb
+    sudo tc qdisc add dev enp0s3 parent 1:1 handle 10:1 netem delay 50ms 10ms distribution normal
+    ```
