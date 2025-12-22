@@ -146,3 +146,93 @@ OBSの統計から見れる
 
 $$\text{送信データ量 (KiB)} = \frac{\text{Bytes A} \to \text{B}}{1024}$$
 
+# eBPF TCP Congestion Control Switcher
+
+このプロジェクトは、eBPFの `struct_ops` を利用して独自のTCP輻輳制御アルゴリズムをカーネルに登録し、`sock_ops` プログラムを用いて特定の通信に対してそのアルゴリズムを動的に適用するものです。
+
+## 実行手順とコマンド解説
+
+### 1. 輻輳制御アルゴリズムのコンパイルと登録
+
+独自の輻輳制御ロジック（`my_rtmp_cc.c`）をカーネルにロードします。
+
+```bash
+# BPFバイトコードへのコンパイル
+clang -g -O2 -target bpf -D__TARGET_ARCH_x86 -I/home/ubuntu-send/libbpf/src -c my_rtmp_cc.c -o my_rtmp_cc.o
+
+# カーネルの struct_ops として登録（TCPスタックの一部として認識させる）
+sudo bpftool struct_ops register my_rtmp_cc.o
+
+```
+
+* **意味**: カーネルに `my_rtmp_cc` という新しいTCPアルゴリズムを「プラグイン」として追加します。
+
+---
+
+### 2. SockOps プログラムのロード
+
+ソケットの状態変化（接続開始など）を監視し、アルゴリズムを切り替えるプログラムを準備します。
+
+```bash
+# SockOpsプログラムのコンパイル
+clang -g -O2 -target bpf -D__TARGET_ARCH_x86 -I/home/ubuntu-send/libbpf/src -c congestion_control_2.bpf.c -o congestion_control_2.bpf.o
+
+# プログラムをBPFファイルシステムにピン留め（永続化）
+sudo bpftool prog load congestion_control_2.bpf.o /sys/fs/bpf/rtmp_sockops
+
+```
+
+* **意味**: `rtmp_sockops` という名前で、ソケット操作を制御するプログラムをカーネル内にロードします。
+
+---
+
+### 3. Cgroupへの適用（有効化）
+
+ロードしたプログラムを特定のCgroup（プロセスグループ）に紐付けて、実際に動作を開始させます。
+
+```bash
+# プログラムを cgroup_sock_ops としてアタッチ
+sudo bpftool cgroup attach /sys/fs/cgroup/ sock_ops pinned /sys/fs/bpf/rtmp_sockops
+
+```
+
+* **意味**: これにより、このCgroup配下で発生するTCP接続に対して、`congestion_control_2` のロジック（RTMPなら `my_rtmp_cc` を使う等）が自動適用されます。
+
+---
+
+### 4. 動作確認
+
+実際にアルゴリズムが切り替わっているかをネットワーク統計コマンドで確認します。
+
+```bash
+# TCPソケットの詳細情報を表示
+ss -tin
+
+```
+
+* **確認ポイント**: 出力結果に `my_rtmp_cc` という文字列が含まれていれば、独自アルゴリズムが適用されています。
+
+---
+
+### 5. プログラムの解除（無効化）
+
+テスト終了後、元の設定（`cubic` 等）に戻すためにプログラムを切り離します。
+
+```bash
+# CgroupからSockOpsプログラムをデタッチ
+sudo bpftool cgroup detach /sys/fs/cgroup/ sock_ops pinned /sys/fs/bpf/rtmp_sockops
+
+```
+
+* **意味**: 動的な切り替えロジックを停止します。既存の接続は維持されますが、新規接続は標準設定に戻ります。
+
+---
+
+## トラブルシューティング
+
+* **`Error: too few parameters`**: `bpftool` の引数順序（cgroupパス、アタッチタイプ、プログラム指定）が正しいか確認してください。
+* **`can't find in /etc/fstab`**: `mount` コマンドでBPFファイルシステムをマウントしようとする際に、`/etc/fstab` に記載がないと発生します。通常、最近の環境では `/sys/fs/bpf` は自動でマウントされています。
+
+---
+
+この内容を `README.md` として保存しておくと、後で見返したときに作業の流れがスムーズになります。次に、特定の条件（ポート番号など）で切り替えるロジックの詳細について解説が必要な場合は教えてください。
