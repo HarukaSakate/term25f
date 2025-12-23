@@ -233,6 +233,68 @@ sudo bpftool cgroup detach /sys/fs/cgroup/ sock_ops pinned /sys/fs/bpf/rtmp_sock
 * **`Error: too few parameters`**: `bpftool` の引数順序（cgroupパス、アタッチタイプ、プログラム指定）が正しいか確認してください。
 * **`can't find in /etc/fstab`**: `mount` コマンドでBPFファイルシステムをマウントしようとする際に、`/etc/fstab` に記載がないと発生します。通常、最近の環境では `/sys/fs/bpf` は自動でマウントされています。
 
+### 1. Cgroupからのデタッチ（実行の停止）
+
+まず、プログラムがネットワークトラフィックを制御している状態を解除します。
+
+```bash
+sudo bpftool cgroup detach /sys/fs/cgroup/ sock_ops pinned /sys/fs/bpf/rtmp_sockops
+
+```
+
+* **解説**: これにより、新しいTCP接続に対してプログラムが介入しなくなります。
+
 ---
 
-この内容を `README.md` として保存しておくと、後で見返したときに作業の流れがスムーズになります。次に、特定の条件（ポート番号など）で切り替えるロジックの詳細について解説が必要な場合は教えてください。
+### 2. ピン留めされたファイルの削除（メモリからの解放）
+
+`bpftool prog load` コマンドで `/sys/fs/bpf/rtmp_sockops` に作成したファイルを削除します。
+
+```bash
+sudo rm /sys/fs/bpf/rtmp_sockops
+
+```
+
+* **解説**: BPFプログラムは、参照カウントが0になると自動的にカーネルメモリから解放されます。「デタッチ」し、さらに「ピン留め（ファイル）」を消すことで、どこからも参照されなくなり、**完全にアンロード**されます。
+
+---
+
+### 3. (参考) struct_ops の登録解除
+
+輻輳制御アルゴリズム自体の登録も消したい場合は、以下の手順で行います。
+
+まず、登録されている `id` を確認します。
+
+```bash
+sudo bpftool struct_ops show
+
+```
+
+（あなたのログでは `id 31` でした）
+
+次に、そのID（または名前）を指定してアンレジスタします。
+
+```bash
+sudo bpftool struct_ops unregister name my_rtmp_cc_ops
+# または
+sudo bpftool struct_ops unregister id 31
+
+```
+
+---
+
+### まとめ：一括削除用コマンド
+
+一連の作業をリセットしたい場合は、以下の3行を実行してください。
+
+```bash
+# 1. 実行を止める
+sudo bpftool cgroup detach /sys/fs/cgroup/ sock_ops pinned /sys/fs/bpf/rtmp_sockops 2>/dev/null
+
+# 2. プログラム本体をカーネルから消す
+sudo rm /sys/fs/bpf/rtmp_sockops
+
+# 3. アルゴリズムの登録を消す
+sudo bpftool struct_ops unregister name my_rtmp_cc_ops
+
+```
