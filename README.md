@@ -186,7 +186,7 @@ sudo bpftool prog load congestion_control_2.bpf.o /sys/fs/bpf/rtmp_sockops
 
 ---
 
-### 3. Cgroupへの適用（有効化）
+### 3. Cgroupへの適用（有効化）、ログ
 
 ロードしたプログラムを特定のCgroup（プロセスグループ）に紐付けて、実際に動作を開始させます。
 
@@ -197,6 +197,11 @@ sudo bpftool cgroup attach /sys/fs/cgroup/ sock_ops pinned /sys/fs/bpf/rtmp_sock
 ```
 
 * **意味**: これにより、このCgroup配下で発生するTCP接続に対して、`congestion_control_2` のロジック（RTMPなら `my_rtmp_cc` を使う等）が自動適用されます。
+
+```bash
+#rtmp_cc.logにログを書き込みながらターミナルにリアルタイムでログを表示する
+sudo cat /sys/kernel/debug/tracing/trace_pipe | tee rtmp_cc.log
+```
 
 ---
 
@@ -225,6 +230,8 @@ sudo bpftool cgroup detach /sys/fs/cgroup/ sock_ops pinned /sys/fs/bpf/rtmp_sock
 ```
 
 * **意味**: 動的な切り替えロジックを停止します。既存の接続は維持されますが、新規接続は標準設定に戻ります。
+
+
 
 ---
 
